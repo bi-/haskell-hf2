@@ -9,7 +9,6 @@ import Data.Text (Text)
 import Network
 import System.IO
 import Test.QuickCheck
---import Data.Text.IO (hGetLine)
 
 import qualified Data.Sequence as Seq
 import qualified Data.Text     as Text
@@ -164,13 +163,12 @@ test_cmdReset =
   ]
 
 -----------------------------------------------------
-{-
 cmdAppend :: Text -> Seq Text -> Seq Text
--- Mivel a sorozat minden tagján ugyanazt a műveletet hajtjuk végre, ezt tehetjük párhuzamosan 
--- tegyünk is így, a Control.Parallel.Strategies csomag alkamazásával! 
--- Ezt a párhuzamosítást ugyanúgy végezhetjük el, mintha egy listán dolgoznánk, 
--- csak a Seq használata miatt a map helyett az fmap függvényt,
---  a parList helyett a parTraversable kiértékelési stratégiát kell használnunk.
+cmdAppend e seq = if (Text.null e) then seq
+                  else fmap (myAction e) seq `using` parTraversable rseq
+
+myAction :: Text -> Text -> Text
+myAction e f = Text.concat [f, Text.pack " | ", e]
 
 test_cmdAppend =
   [ cmdAppend "" Seq.empty
@@ -185,4 +183,27 @@ test_cmdAppend =
     == Seq.fromList ["0 | 4", "2 | 1 | 4", "3 | 1 | 4"]
   ]
 
+-----------------------------------------------------
+{-
+handleRequest :: [Text] -> Seq Text -> Seq Text
+handleRequest lines 
+
+instance Arbitrary Text where
+  arbitrary = Text.pack `fmap` arbitrary
+
+instance Arbitrary a => Arbitrary (Seq a) where
+  arbitrary = Seq.fromList `fmap` arbitrary
+
+prop_handleRequest :: Text -> [Text] -> Seq Text -> Property
+prop_handleRequest resourceSuffix xs ys =
+  Text.all (not . isSpace) resourceSuffix ==>
+    flip all prefs $ \(pref, f) ->
+      handleRequest (request pref) ys == f resourceSuffix ys
+  where
+    requestHead pref = Text.concat ["GET ", pref, resourceSuffix, " HTTP/1.1"]
+    request pref = requestHead pref : xs
+    prefs =
+      [ ("/say/", cmdSay), ("/reset/", cmdReset)
+      , ("/append/", cmdAppend), ("/alma/", const id)
+      ]
 -}
