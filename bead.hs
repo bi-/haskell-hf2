@@ -53,23 +53,25 @@ test_response =
 
 
 -----------------------------------------------------
-handleClient :: Handle -> IO ()
-handleClient hndl = do
+handleClient :: MVar (Seq Text) -> Handle -> IO ()
+handleClient msgVar hndl = do
   s <- hGetLines hndl
-  Text.hPutStr hndl $ response "szia"
+  msg <- takeMVar msgVar 
+  let result = handleRequest s msg
+  putMVar msgVar result
+  Text.hPutStr hndl $ response $ Text.append (Text.pack "szia")  (Text.pack $ show $Seq.length result)
   hFlush hndl
   hClose hndl
-  --return ()
 
 -----------------------------------------------------
 main :: IO () 
 main = do
   socket <- listenOn (PortNumber 8000)
-  tid <- forkIO ( acceptFork socket handleClient)
+  myVar <- newEmptyMVar
+  tid <- forkIO ( acceptFork socket (handleClient myVar) )
   line <- getLine
   killThread tid
   sClose socket
-  --return ()
 
 -----------------------------------------------------
 {-
@@ -213,3 +215,5 @@ prop_handleRequest resourceSuffix xs ys =
       [ ("/say/", cmdSay), ("/reset/", cmdReset)
       , ("/append/", cmdAppend), ("/alma/", const id)
       ]
+
+
