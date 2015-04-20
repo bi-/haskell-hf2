@@ -31,7 +31,8 @@ acceptFork socket action = do
   hSetBuffering hndl NoBuffering
   hSetNewlineMode hndl $ NewlineMode CRLF CRLF 
   forkIO (action hndl)
-  return ()
+  acceptFork socket action
+  --return ()
   --TODO call recursively acceptFork 
 
 -----------------------------------------------------
@@ -58,7 +59,7 @@ handleClient hndl = do
   Text.hPutStr hndl $ response "szia"
   hFlush hndl
   hClose hndl
-  return ()
+  --return ()
 
 -----------------------------------------------------
 main :: IO () 
@@ -68,7 +69,7 @@ main = do
   line <- getLine
   killThread tid
   sClose socket
-  return ()
+  --return ()
 
 -----------------------------------------------------
 {-
@@ -132,7 +133,7 @@ cmdSay e seq = if (Text.null e)
                  else seq Seq.|> 
                    Text.concat [
                    Text.pack $ show $ 1 + Seq.length seq, 
-                   Text.pack "> ",
+                   "> ",
                    e ]
    
 
@@ -184,10 +185,16 @@ test_cmdAppend =
   ]
 
 -----------------------------------------------------
-{-
 handleRequest :: [Text] -> Seq Text -> Seq Text
-handleRequest lines 
-
+handleRequest lines seq = do
+   let rr = requestedResource lines >>= parseResource
+   case (rr) of 
+         Just ("say", a) -> cmdSay a seq
+         Just ("reset",a) -> cmdReset a seq
+         Just ("append",a) -> cmdAppend a seq
+         Just (_,"") -> seq
+         _ -> seq
+            
 instance Arbitrary Text where
   arbitrary = Text.pack `fmap` arbitrary
 
@@ -206,4 +213,3 @@ prop_handleRequest resourceSuffix xs ys =
       [ ("/say/", cmdSay), ("/reset/", cmdReset)
       , ("/append/", cmdAppend), ("/alma/", const id)
       ]
--}
