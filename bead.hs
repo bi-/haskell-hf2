@@ -32,8 +32,6 @@ acceptFork socket action = do
   hSetNewlineMode hndl $ NewlineMode CRLF CRLF 
   forkIO (action hndl)
   acceptFork socket action
-  --return ()
-  --TODO call recursively acceptFork 
 
 -----------------------------------------------------
 response :: Text -> Text 
@@ -59,7 +57,9 @@ handleClient msgVar hndl = do
   msg <- takeMVar msgVar 
   let result = handleRequest s msg
   putMVar msgVar result
-  Text.hPutStr hndl $ response $ Text.append (Text.pack "szia")  (Text.pack $ show $Seq.length result)
+  Text.hPutStr hndl $ response $ Text.append 
+    (Text.append (Text.pack $ show $Seq.length result) " messages")
+    $ (Text.concat . map (Text.append ("\n")) . toList) result
   hFlush hndl
   hClose hndl
 
@@ -67,7 +67,7 @@ handleClient msgVar hndl = do
 main :: IO () 
 main = do
   socket <- listenOn (PortNumber 8000)
-  myVar <- newEmptyMVar
+  myVar <- newMVar $ Seq.fromList []
   tid <- forkIO ( acceptFork socket (handleClient myVar) )
   line <- getLine
   killThread tid
@@ -89,8 +89,6 @@ requestedResource (x:xs) = reqRes $ Text.words x
 
 reqRes (x:y:z:zx) | Text.toUpper(x) == "GET" = Just y
 reqRes _ = Nothing
-
-
 
 test_requestedResource =
   [ requestedResource [""]                      == Nothing
